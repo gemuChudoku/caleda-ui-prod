@@ -41,21 +41,30 @@ jobs:
       - name: Push image to Azure Container Registry
         run: docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
 
-      - name: Get ACR credentials
-        id: get-acr-creds
+      - name: Configure Azure Web App to use ACR image
         run: |
+          # Obtener credenciales de ACR
           ACR_USERNAME=$(az acr credential show --name ${{ env.ACR_NAME }} --query "username" -o tsv)
           ACR_PASSWORD=$(az acr credential show --name ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv)
-          echo "::add-mask::$ACR_USERNAME"
-          echo "::add-mask::$ACR_PASSWORD"
-          echo "acr_username=$ACR_USERNAME" >> $GITHUB_OUTPUT
-          echo "acr_password=$ACR_PASSWORD" >> $GITHUB_OUTPUT
+          
+          # Configurar el Web App para usar la imagen de ACR
+          az webapp config container set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --docker-custom-image-name ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest \
+            --docker-registry-server-url https://${{ env.ACR_NAME }}.azurecr.io \
+            --docker-registry-server-user $ACR_USERNAME \
+            --docker-registry-server-password $ACR_PASSWORD
 
-      - name: Deploy to Azure Web App for Containers
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          images: ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
-          registry-url: https://${{ env.ACR_NAME }}.azurecr.io
-          username: ${{ steps.get-acr-creds.outputs.acr_username }}
-          password: ${{ steps.get-acr-creds.outputs.acr_password }}
+      - name: Configure App Settings
+        run: |
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --settings \
+              WEBSITES_PORT=80 \
+              WEBSITES_ENABLE_APP_SERVICE_STORAGE=false
+
+      - name: Restart Web App
+        run: |
+          az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }}

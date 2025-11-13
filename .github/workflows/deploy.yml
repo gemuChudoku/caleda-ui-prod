@@ -30,6 +30,7 @@ jobs:
           az acr login --name ${{ env.ACR_NAME }}
           ACR_USERNAME=$(az acr credential show --name ${{ env.ACR_NAME }} --query "username" -o tsv)
           ACR_PASSWORD=$(az acr credential show --name ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv)
+          echo "::add-mask::$ACR_PASSWORD"
           echo $ACR_PASSWORD | docker login ${{ env.ACR_NAME }}.azurecr.io -u $ACR_USERNAME --password-stdin
 
       - name: Build Docker image
@@ -40,8 +41,21 @@ jobs:
       - name: Push image to Azure Container Registry
         run: docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
 
+      - name: Get ACR credentials
+        id: get-acr-creds
+        run: |
+          ACR_USERNAME=$(az acr credential show --name ${{ env.ACR_NAME }} --query "username" -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv)
+          echo "::add-mask::$ACR_USERNAME"
+          echo "::add-mask::$ACR_PASSWORD"
+          echo "acr_username=$ACR_USERNAME" >> $GITHUB_OUTPUT
+          echo "acr_password=$ACR_PASSWORD" >> $GITHUB_OUTPUT
+
       - name: Deploy to Azure Web App for Containers
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           images: ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+          registry-url: https://${{ env.ACR_NAME }}.azurecr.io
+          username: ${{ steps.get-acr-creds.outputs.acr_username }}
+          password: ${{ steps.get-acr-creds.outputs.acr_password }}

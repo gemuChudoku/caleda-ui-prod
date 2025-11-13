@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  ACR_NAME: acrInterface              # Tu Azure Container Registry
-  IMAGE_NAME: front-caleda            # Nombre de la imagen Docker
-  AZURE_WEBAPP_NAME: front-caleda     # Nombre de tu Web App en Azure
-  RESOURCE_GROUP: rg-multi-apis       # Grupo de recursos
+  ACR_NAME: acrInterface
+  IMAGE_NAME: front-caleda
+  AZURE_WEBAPP_NAME: front-caleda
+  RESOURCE_GROUP: rg-multi-apis
 
 jobs:
   build-and-deploy:
@@ -25,8 +25,12 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ env.ACR_NAME }}
+      - name: Log in to Azure Container Registry (ACR)
+        run: |
+          az acr login --name ${{ env.ACR_NAME }}
+          ACR_USERNAME=$(az acr credential show --name ${{ env.ACR_NAME }} --query "username" -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv)
+          echo $ACR_PASSWORD | docker login ${{ env.ACR_NAME }}.azurecr.io -u $ACR_USERNAME --password-stdin
 
       - name: Build Docker image
         run: |

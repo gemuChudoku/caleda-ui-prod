@@ -147,7 +147,7 @@ const Dashboard = () => {
           <h1>Dashboard - Caleda Smart</h1>
           <div className="user-info">
             <span>
-              Bienvenido, {currentUser?.full_name || currentUser?.email || 'Usuario'}
+              Bienvenido {currentUser?.full_name || currentUser?.email }
               {currentUser?.role && (
                 <span className="user-role"> ({currentUser.role})</span>
               )}
@@ -183,7 +183,7 @@ const Dashboard = () => {
             value={stats.totalRefunds}
             icon="🔄"
             color="orange"
-            onClick={() => navigate('/refunds')}
+            onClick={() => navigate('/refunds/List')}
           />
           <StatCard
             title="Usuarios Activos"
@@ -197,7 +197,7 @@ const Dashboard = () => {
             value={stats.pendingRefunds}
             icon="⏳"
             color="red"
-            onClick={() => navigate('/refunds?filter=pending')}
+            onClick={() => navigate('/refunds/List?filter=pending')}
           />
           <StatCard
             title="Productos con Stock Bajo"

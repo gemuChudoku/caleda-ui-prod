@@ -35,20 +35,28 @@ const SaleForm = ({ onAddSale, onUpdateSale, editingSale, onCancel }) => {
 
   // Calcular total cuando cambia cantidad o precio
   useEffect(() => {
-    const total = formData.cantidad * formData.precioUnitario;
-    setFormData(prev => ({
-      ...prev,
-      total: total
-    }));
-  }, [formData.cantidad, formData.precioUnitario]);
+  const cantidadNum = Number(formData.cantidad || 0);
+  const precioNum = Number(formData.precioUnitario || 0);
+
+  const total = cantidadNum * precioNum;
+
+  setFormData(prev => ({
+    ...prev,
+    total
+  }));
+}, [formData.cantidad, formData.precioUnitario]);
+
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'cantidad' || name === 'precioUnitario' ? Number(value) : value
-    }));
-  };
+  const { name, value } = e.target;
+
+  setFormData(prev => ({
+    ...prev,
+    [name]: value   // mantener STRING
+  }));
+};
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -150,7 +158,7 @@ const SaleForm = ({ onAddSale, onUpdateSale, editingSale, onCancel }) => {
                 value={formData.precioUnitario}
                 onChange={handleChange}
                 min="0"
-                step="0.01"
+                step="1"
                 required
               />
             </div>

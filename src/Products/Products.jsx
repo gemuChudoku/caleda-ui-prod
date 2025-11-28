@@ -101,6 +101,7 @@ const Products = () => {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
             "Ocp-Apim-Subscription-Key": "57e74324f6c74151961dfa3a7d937461"
           }
         });

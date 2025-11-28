@@ -11,9 +11,9 @@ export const API_ENDPOINTS = {
   products: `${API_BASE_URL}/products/products`,
   createProduct: `${API_BASE_URL}/products/products`,
   getProducts: `${API_BASE_URL}/products/products`,
-  getProduct: (id) => `${API_BASE_URL}/products/products`,
+  getProduct: `${API_BASE_URL}/products/products`,
   updateProduct: `${API_BASE_URL}/products/products`,
-  deleteProduct: (id) => `${API_BASE_URL}/products/products}`,
+  deleteProduct: `${API_BASE_URL}/products/products`,
 
  // Sales endpoints
   sales: `${API_BASE_URL}/sales/sales`,

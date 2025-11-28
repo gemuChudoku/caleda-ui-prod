@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS } from '../config/apiConfig';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -15,40 +16,83 @@ const Dashboard = () => {
   const [recentSales, setRecentSales] = useState([]);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
+    getCurrentUser();
   }, []);
+
+  const getCurrentUser = () => {
+    try {
+      const userData = localStorage.getItem('userData');
+      if (userData) {
+        setCurrentUser(JSON.parse(userData));
+        return;
+      }
+      
+      const userRole = localStorage.getItem('userRole');
+      const userEmail = localStorage.getItem('userEmail');
+      if (userRole) {
+        setCurrentUser({ role: userRole, email: userEmail });
+      }
+    } catch (error) {
+      console.error('Error obteniendo usuario:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
-      // En un entorno real, estos serían llamadas a tu API
-      const mockData = {
-        totalProducts: 156,
-        totalSales: 892,
-        totalRefunds: 23,
-        totalUsers: 45,
-        pendingRefunds: 5,
-        lowStockProducts: 8
+      setLoading(true);
+      const token = localStorage.getItem('jwt');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        "Ocp-Apim-Subscription-Key": "57e74324f6c74151961dfa3a7d937461"
       };
 
-      const mockRecentSales = [
-        { id: 'VNT001', producto: 'Laptop Dell XPS', cliente: 'Juan Pérez', total: 1500, fecha: '2024-01-15' },
-        { id: 'VNT002', producto: 'Mouse Inalámbrico', cliente: 'María García', total: 25, fecha: '2024-01-15' },
-        { id: 'VNT003', producto: 'Teclado Mecánico', cliente: 'Carlos López', total: 80, fecha: '2024-01-14' }
-      ];
+      // Hacer todas las llamadas en paralelo
+      const [productsRes, salesRes, refundsRes, usersRes] = await Promise.all([
+        fetch(API_ENDPOINTS.products, { headers }),
+        fetch(API_ENDPOINTS.sales, { headers }),
+        fetch(API_ENDPOINTS.refunds, { headers }),
+        fetch(API_ENDPOINTS.users, { headers })
+      ]);
 
-      const mockLowStock = [
-        { name: 'Monitor 24"', quantity: 3, minStock: 10 },
-        { name: 'SSD 1TB', quantity: 5, minStock: 15 },
-        { name: 'RAM 16GB', quantity: 2, minStock: 8 }
-      ];
+      // Procesar respuestas
+      const products = productsRes.ok ? await productsRes.json() : [];
+      const sales = salesRes.ok ? await salesRes.json() : [];
+      const refunds = refundsRes.ok ? await refundsRes.json() : [];
+      const users = usersRes.ok ? await usersRes.json() : [];
 
-      setStats(mockData);
-      setRecentSales(mockRecentSales);
-      setLowStockItems(mockLowStock);
-      
+      // Calcular estadísticas
+      const lowStockItems = products.filter(product => 
+        product.quantity <= (product.minStock || 10)
+      );
+
+      const pendingRefunds = refunds.filter(refund => 
+        refund.status === 'pending'
+      );
+
+      // Obtener ventas recientes (últimas 5)
+      const recentSalesData = sales
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .slice(0, 5);
+
+      // Actualizar estado
+      setStats({
+        totalProducts: products.length,
+        totalSales: sales.length,
+        totalRefunds: refunds.length,
+        totalUsers: users.length,
+        pendingRefunds: pendingRefunds.length,
+        lowStockProducts: lowStockItems.length
+      });
+
+      setRecentSales(recentSalesData);
+      setLowStockItems(lowStockItems.slice(0, 5)); // Solo mostrar 5 items
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -56,8 +100,16 @@ const Dashboard = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    navigate('/login');
+  };
+
   const StatCard = ({ title, value, icon, color, onClick }) => (
-    <div className={`stat-card ${color}`} onClick={onClick}>
+    <div className={`stat-card ${color}`} onClick={onClick} style={{ cursor: 'pointer' }}>
       <div className="stat-icon">{icon}</div>
       <div className="stat-content">
         <h3>{value}</h3>
@@ -65,6 +117,18 @@ const Dashboard = () => {
       </div>
     </div>
   );
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('es-CO');
+  };
 
   if (loading) {
     return (
@@ -82,8 +146,15 @@ const Dashboard = () => {
         <div className="header-content">
           <h1>Dashboard - Caleda Smart</h1>
           <div className="user-info">
-            <span>Bienvenido, Usuario</span>
-            <button className="btn-logout">Cerrar Sesión</button>
+            <span>
+              Bienvenido, {currentUser?.full_name || currentUser?.email || 'Usuario'}
+              {currentUser?.role && (
+                <span className="user-role"> ({currentUser.role})</span>
+              )}
+            </span>
+            <button className="btn-logout" onClick={handleLogout}>
+              Cerrar Sesión
+            </button>
           </div>
         </div>
       </header>
@@ -147,7 +218,7 @@ const Dashboard = () => {
             </button>
             <button className="action-btn secondary" onClick={() => navigate('/products')}>
               <span className="action-icon">📦</span>
-              Agregar Producto
+              Gestionar Productos
             </button>
             <button className="action-btn warning" onClick={() => navigate('/refunds')}>
               <span className="action-icon">🔄</span>
@@ -172,18 +243,24 @@ const Dashboard = () => {
               </button>
             </div>
             <div className="section-content">
-              {recentSales.map(sale => (
-                <div key={sale.id} className="recent-item">
-                  <div className="item-info">
-                    <strong>{sale.producto}</strong>
-                    <span>{sale.cliente}</span>
+              {recentSales.length > 0 ? (
+                recentSales.map(sale => (
+                  <div key={sale.id} className="recent-item">
+                    <div className="item-info">
+                      <strong>{sale.producto}</strong>
+                      <span>{sale.cliente}</span>
+                    </div>
+                    <div className="item-meta">
+                      <span className="amount">{formatCurrency(sale.total)}</span>
+                      <span className="date">{formatDate(sale.fecha)}</span>
+                    </div>
                   </div>
-                  <div className="item-meta">
-                    <span className="amount">${sale.total}</span>
-                    <span className="date">{sale.fecha}</span>
-                  </div>
+                ))
+              ) : (
+                <div className="empty-message">
+                  No hay ventas recientes
                 </div>
-              ))}
+              )}
             </div>
           </section>
 
@@ -196,18 +273,35 @@ const Dashboard = () => {
               </button>
             </div>
             <div className="section-content">
-              {lowStockItems.map((item, index) => (
-                <div key={index} className="alert-item">
-                  <div className="alert-icon">⚠️</div>
-                  <div className="alert-info">
-                    <strong>{item.name}</strong>
-                    <span>Stock: {item.quantity} (Mínimo: {item.minStock})</span>
+              {lowStockItems.length > 0 ? (
+                lowStockItems.map((item, index) => (
+                  <div key={item.id || index} className="alert-item">
+                    <div className="alert-icon">⚠️</div>
+                    <div className="alert-info">
+                      <strong>{item.name}</strong>
+                      <span>Stock: {item.quantity} {item.minStock && `(Mínimo: ${item.minStock})`}</span>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="empty-message">
+                  ✅ Todo el stock está en niveles óptimos
                 </div>
-              ))}
+              )}
             </div>
           </section>
 
+        </div>
+
+        {/* Refresh Button */}
+        <div className="refresh-section">
+          <button 
+            className="btn-refresh"
+            onClick={fetchDashboardData}
+            disabled={loading}
+          >
+            {loading ? 'Actualizando...' : '🔄 Actualizar Datos'}
+          </button>
         </div>
 
       </div>

@@ -9,8 +9,8 @@ const RefundsForm = () => {
     sale_id: '',
     product_name: '',
     client_name: '',
-    seller: '',
-    refund_date: new Date().toISOString().split('T')[0], // Fecha actual
+    seller: '', 
+    refund_date: new Date().toISOString().split('T')[0],
     quantity: 1,
     unit_price: 0,
     total_amount: 0,
@@ -19,15 +19,12 @@ const RefundsForm = () => {
   });
 
   const [sales, setSales] = useState([]);
-  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Cargar ventas disponibles al iniciar
   useEffect(() => {
     fetchSales();
   }, []);
 
-  // Calcular total_amount automáticamente
   useEffect(() => {
     const total = formData.quantity * formData.unit_price;
     setFormData(prev => ({
@@ -59,7 +56,6 @@ const RefundsForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Si cambia la venta, cargar información automáticamente
     if (name === 'sale_id') {
       const selectedSale = sales.find(sale => sale.id === value);
       if (selectedSale) {
@@ -68,7 +64,7 @@ const RefundsForm = () => {
           sale_id: value,
           product_name: selectedSale.producto,
           client_name: selectedSale.cliente,
-          seller: selectedSale.vendedor,
+          seller: selectedSale.vendedor, 
           unit_price: selectedSale.precioUnitario
         }));
         return;
@@ -86,9 +82,18 @@ const RefundsForm = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Validación adicional
+    if (!formData.seller) {
+      alert('❌ Error: El campo vendedor es requerido');
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('jwt');
-      const response = await fetch(API_ENDPOINTS.refunds, {
+      console.log('📤 Enviando datos:', formData); // Debug
+      
+      const response = await fetch(API_ENDPOINTS.createRefunds, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -98,16 +103,21 @@ const RefundsForm = () => {
         body: JSON.stringify(formData)
       });
 
+      console.log('📞 Response status:', response.status); // Debug
+
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Respuesta del servidor:', data); // Debug
         alert('✅ Devolución registrada exitosamente');
-        navigate('/refunds'); // Redirigir a la lista de devoluciones
+        navigate('/refunds');
       } else {
-        const errorData = await response.json();
-        alert('❌ Error: ' + (errorData.error || 'No se pudo registrar la devolución'));
+        const errorText = await response.text();
+        console.error('❌ Error response:', errorText); // Debug
+        alert('❌ Error: ' + (errorText || 'No se pudo registrar la devolución'));
       }
     } catch (error) {
       console.error('Error submitting refund:', error);
-      alert('❌ Error de conexión');
+      alert('❌ Error de conexión: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -179,9 +189,9 @@ const RefundsForm = () => {
             </select>
           </div>
 
-          {/* Información de Producto (se autocompleta al seleccionar venta) */}
+          {/* Información de Producto */}
           <div className="form-group">
-            <label className="form-label" htmlFor="product_name">Producto</label>
+            <label className="form-label" htmlFor="product_name">Producto *</label>
             <input
               type="text"
               className="form-control"
@@ -194,9 +204,9 @@ const RefundsForm = () => {
             />
           </div>
 
-          {/* Información del Cliente (se autocompleta al seleccionar venta) */}
+          {/* Información del Cliente */}
           <div className="form-group">
-            <label className="form-label" htmlFor="client_name">Cliente</label>
+            <label className="form-label" htmlFor="client_name">Cliente *</label>
             <input
               type="text"
               className="form-control"
@@ -209,9 +219,9 @@ const RefundsForm = () => {
             />
           </div>
 
-          {/* Información del Vendedor (se autocompleta al seleccionar venta) */}
+          {/* Información del Vendedor */}
           <div className="form-group">
-            <label className="form-label" htmlFor="seller">Vendedor</label>
+            <label className="form-label" htmlFor="seller">Vendedor *</label>
             <input
               type="text"
               className="form-control"
@@ -220,7 +230,7 @@ const RefundsForm = () => {
               value={formData.seller}
               onChange={handleChange}
               required
-              placeholder="Nombre del vendedor"
+              placeholder="ID o nombre del vendedor"
             />
           </div>
 
@@ -239,7 +249,7 @@ const RefundsForm = () => {
             />
           </div>
 
-          {/* Precio Unitario (se autocompleta al seleccionar venta) */}
+          {/* Precio Unitario */}
           <div className="form-group">
             <label className="form-label" htmlFor="unit_price">Precio Unitario *</label>
             <input
@@ -252,6 +262,19 @@ const RefundsForm = () => {
               step="0.01"
               min="0"
               required
+            />
+          </div>
+
+          {/* Total (calculado automáticamente) */}
+          <div className="form-group">
+            <label className="form-label">Total a Reembolsar</label>
+            <div className="total-display">
+              ${formData.total_amount.toFixed(2)}
+            </div>
+            <input
+              type="hidden"
+              name="total_amount"
+              value={formData.total_amount}
             />
           </div>
 
@@ -276,33 +299,15 @@ const RefundsForm = () => {
             </select>
           </div>
 
-          {/* Campo para "Otros" motivos */}
-          {formData.reason === 'Otros' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="custom_reason">Especificar motivo *</label>
-              <input
-                type="text"
-                className="form-control"
-                id="custom_reason"
-                name="reason"
-                value={formData.reason}
-                onChange={handleChange}
-                placeholder="Especificar el motivo de la devolución"
-                required
-              />
-            </div>
-          )}
-
           {/* Estado de la Devolución */}
           <div className="form-group">
-            <label className="form-label" htmlFor="status">Estado de la Devolución</label>
+            <label className="form-label" htmlFor="status">Estado</label>
             <select 
               className="form-select" 
               id="status"
               name="status"
               value={formData.status}
               onChange={handleChange}
-              required
             >
               <option value="pending">Pendiente</option>
               <option value="approved">Aprobada</option>
@@ -311,31 +316,14 @@ const RefundsForm = () => {
             </select>
           </div>
 
-          {/* Resumen de Montos */}
-          <div className="summary-box">
-            <h4 className="summary-title">Resumen de la Devolución</h4>
-            <div className="summary-item">
-              <span>Cantidad:</span>
-              <span>{formData.quantity} unidades</span>
-            </div>
-            <div className="summary-item">
-              <span>Precio Unitario:</span>
-              <span>${formData.unit_price.toFixed(2)}</span>
-            </div>
-            <div className="summary-item summary-total">
-              <span>Total a Reembolsar:</span>
-              <span>${formData.total_amount.toFixed(2)}</span>
-            </div>
-          </div>
-
           {/* Información Adicional */}
           <div className="info-box">
             <div className="info-title">Información Importante</div>
             <ul className="info-list">
               <li>✅ Al seleccionar una venta, la información se completará automáticamente</li>
-              <li>✅ El stock se actualizará automáticamente al procesar la devolución</li>
+              <li>✅ El total se calcula automáticamente (Cantidad × Precio Unitario)</li>
               <li>✅ Verifica que la información coincida con la venta original</li>
-              <li>✅ El estado "Pendiente" requiere aprobación del supervisor</li>
+              <li>✅ El estado "Pendiente" requiere aprobación</li>
             </ul>
           </div>
         </div>
